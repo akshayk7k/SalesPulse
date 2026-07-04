@@ -1,3 +1,5 @@
 **/node_modules/
 .env
 server/.env.example
+client/.vite/
+client/dist/

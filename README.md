@@ -111,7 +111,6 @@ SalesPulse/
 │   ├── routes/             # API Endpoints (Account, Search, Ingestion, Strategy)
 │   ├── ingestion/          # Salesforce connector & sync pipeline scripts
 │   ├── utils/              # AI helper, thread grouping, string metrics
-│   ├── salesforce.db       # Local seed/backup SQLite database
 │   └── package.json
 │
 ├── package.json            # Root configuration
@@ -154,17 +153,14 @@ Review and fill out:
 * `OPENROUTERDEEPSEEK` (Fallback OpenRouter key)
 * `SF_CLIENT_ID` / `SF_CLIENT_SECRET` (Salesforce Connected App client config)
 
-### 3. Initialize & Seed Database
-Prepare your local environments with mockup customer accounts, contacts, email histories, and opportunity flows:
+### 3. Sync CRM Data (Salesforce ➔ MongoDB)
+To fetch live data from Salesforce and populate MongoDB:
 
-```bash
-cd server
-# Initialize local SQLite DB
-node seed.js
-# Seed MongoDB collections
-node seedMongo.js
-cd ../
-```
+1. Start the server (see Step 4 below).
+2. Visit `http://localhost:3002/ingestion/authorize` in your browser.
+3. Log in with your Salesforce credentials to start the sync process.
+
+*Note: Alternatively, if your Salesforce org allows Username/Password authentication flows, you can trigger a sync manually by calling the `/ingestion/sync` endpoint.*
 
 ### 4. Run Services
 Launch both components to start testing:
