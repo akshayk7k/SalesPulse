@@ -389,6 +389,64 @@ export async function runSync() {
   }
 }
 
+/**
+ * Automatically perform sync:
+ * 1. Checks if a stored OAuth2 refresh token exists in MongoDB.
+ * 2. If yes, requests a new access token from Salesforce and syncs.
+ * 3. If no/fails, falls back to the Username-Password (SOAP login) sync.
+ */
+export async function runAutomaticSync() {
+  const mongoClient = new MongoClient(mongoUri);
+  await mongoClient.connect();
+  const db = mongoClient.db(dbName);
+
+  try {
+    const creds = await db.collection("sync_meta").findOne({ _id: "oauth_credentials" });
+    if (creds && creds.refresh_token) {
+      console.log("🔑 Found stored Salesforce OAuth2 refresh token. Refreshing access token...");
+
+      const SF_CLIENT_ID = process.env.SF_CLIENT_ID;
+      const SF_CLIENT_SECRET = process.env.SF_CLIENT_SECRET;
+      const SF_LOGIN_URL = process.env.SF_LOGIN_URL || "https://login.salesforce.com";
+
+      if (SF_CLIENT_ID) {
+        const body = new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: SF_CLIENT_ID,
+          client_secret: SF_CLIENT_SECRET || "",
+          refresh_token: creds.refresh_token,
+        });
+
+        const tokenRes = await fetch(`${SF_LOGIN_URL}/services/oauth2/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: body.toString(),
+        });
+
+        const tokenData = await tokenRes.json();
+        if (tokenData.access_token) {
+          console.log("✅ Successfully refreshed Salesforce access token. Running sync...");
+          await mongoClient.close();
+          return await runSyncWithToken(tokenData.access_token, tokenData.instance_url || creds.instance_url);
+        } else {
+          console.warn("⚠️ Refresh token exchange returned no token:", tokenData.error_description || tokenData.error);
+        }
+      } else {
+        console.warn("⚠️ SF_CLIENT_ID is not configured in .env. Cannot refresh token.");
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Automatic OAuth2 refresh sync failed, falling back to SOAP login:", err.message);
+  } finally {
+    if (mongoClient) {
+      await mongoClient.close();
+    }
+  }
+
+  console.log("🔑 Attempting Username-Password (SOAP) login sync fallback...");
+  return await runSync();
+}
+
 // ─── CLI entry point ──────────────────────────────────────────────────────────
 // Run directly: node ingestion/salesforce.js
 if (process.argv[1] && process.argv[1].endsWith("salesforce.js")) {

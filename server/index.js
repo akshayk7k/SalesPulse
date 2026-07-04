@@ -20,7 +20,7 @@ import RecentActivitiesRouter from "./routes/recentActivities.js";
 import SearchRouter from "./routes/search.js";
 import StrategyRouter from "./routes/strategy.js";
 import IngestionRouter from "./routes/ingestion.js";
-import { runSync } from "./ingestion/salesforce.js";
+import { runAutomaticSync } from "./ingestion/salesforce.js";
 import { createClient } from "redis";
 
 const port = process.env.PORT || 3002 ;
@@ -86,14 +86,14 @@ app.listen(port, () => {
   
   // Trigger background sync on startup
   console.log("🚀 Starting automatic Salesforce sync on server startup...");
-  runSync()
+  runAutomaticSync()
     .then((result) => console.log("✅ Startup Salesforce sync complete:", result.summary))
     .catch((err) => console.warn("⚠️ Startup Salesforce sync skipped/failed:", err.message));
 
   // Set up recurring sync every 1 hour
   setInterval(() => {
     console.log("🔄 Starting scheduled Salesforce sync...");
-    runSync()
+    runAutomaticSync()
       .then((result) => console.log("✅ Scheduled Salesforce sync complete:", result.summary))
       .catch((err) => console.warn("⚠️ Scheduled Salesforce sync skipped/failed:", err.message));
   }, 60 * 60 * 1000);

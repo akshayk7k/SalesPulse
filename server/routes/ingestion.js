@@ -95,8 +95,17 @@ router.get("/ingestion/callback", async (req, res) => {
       return res.status(400).send(`<h2>❌ Token Error: ${tokenData.error_description}</h2>`);
     }
 
-    const { access_token, instance_url } = tokenData;
+    const { access_token, refresh_token, instance_url } = tokenData;
     console.log(`✅ Token obtained. Instance: ${instance_url}`);
+
+    if (refresh_token) {
+      await mongoDb.collection("sync_meta").updateOne(
+        { _id: "oauth_credentials" },
+        { $set: { refresh_token, instance_url, timestamp: new Date().toISOString() } },
+        { upsert: true }
+      );
+      console.log("💾 Saved Salesforce OAuth2 refresh token to database.");
+    }
 
     // Respond immediately — sync runs in background
     res.send(`
